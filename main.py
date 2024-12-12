@@ -77,8 +77,7 @@ if __name__ == "__main__":
             print(f"Sheet for {today} does not exist. Exiting the script.")
         else:
             sheet = wb[today]
-            keywords = [sheet.cell(row=row, column=1).value for row in range(
-                2, sheet.max_row + 1)]
+            keywords = [sheet.cell(row=row, column=1).value for row in range(2, sheet.max_row + 1)]
 
             # Process each keyword
             for keyword in keywords:
