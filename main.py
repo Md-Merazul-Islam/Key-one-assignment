@@ -5,7 +5,7 @@ from selenium.webdriver.common.by import By
 import time
 
 
-def get_suggestions(keyword, file_path, sheet_name):
+def get_suggestions(keyword):
     driver = webdriver.Chrome()
 
     try:
@@ -30,33 +30,49 @@ def get_suggestions(keyword, file_path, sheet_name):
                 if shortest is None or len(text) < len(shortest):
                     shortest = text
 
+        print(f"Keyword: {keyword}")
         print("Longest Suggestion: ", longest)
         print("Shortest Suggestion: ", shortest)
 
-        # Update Excel
-        wb = openpyxl.load_workbook(file_path)
-        sheet = wb[sheet_name]
-
-        for row in range(2, sheet.max_row + 1):
-            if sheet.cell(row=row, column=1).value == keyword:
-                sheet.cell(row=row, column=2).value = longest
-                sheet.cell(row=row, column=3).value = shortest
-                break
-
-        wb.save(file_path)
         return longest, shortest
 
     finally:
         driver.quit()
 
 
+def create_or_update_sheet(file_path, day, keyword, longest, shortest):
+    try:
+        # Load or create Excel file
+        try:
+            wb = openpyxl.load_workbook(file_path)
+        except FileNotFoundError:
+            wb = openpyxl.Workbook()
+
+        # Check if the day's sheet exists; if not, create it
+        if day not in wb.sheetnames:
+            sheet = wb.create_sheet(title=day)
+            sheet.append(["Keyword", "Longest Suggestion",
+                         "Shortest Suggestion"])
+        else:
+            sheet = wb[day]
+
+        # Append the keyword data to the sheet
+        sheet.append([keyword, longest, shortest])
+
+        # Save the workbook
+        wb.save(file_path)
+        print(f"Updated sheet for {day} with keyword: {keyword}")
+    except Exception as e:
+        print(f"Error while updating Excel sheet: {e}")
+
+
 if __name__ == "__main__":
     excel_file = "keywords.xlsx"
     today = datetime.now().strftime("%A")
 
+    # Load the workbook and get the keywords for today
     try:
         wb = openpyxl.load_workbook(excel_file)
-
         if today not in wb.sheetnames:
             print(f"Sheet for {today} does not exist. Exiting the script.")
         else:
@@ -64,10 +80,13 @@ if __name__ == "__main__":
             keywords = [sheet.cell(row=row, column=1).value for row in range(
                 2, sheet.max_row + 1)]
 
+            # Process each keyword
             for keyword in keywords:
                 if keyword:
                     print(f"Processing keyword: {keyword}")
-                    get_suggestions(keyword, excel_file, today)
+                    longest, shortest = get_suggestions(keyword)
+                    create_or_update_sheet(
+                        excel_file, today, keyword, longest, shortest)
 
             print("Excel file has been updated.")
     except Exception as e:
