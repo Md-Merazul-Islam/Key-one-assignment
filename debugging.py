@@ -31,7 +31,6 @@ def get_suggestions(driver, keyword):
 
         time.sleep(2)  
 
-
         search_box.send_keys(Keys.RETURN)
         print("Search triggered.")
 

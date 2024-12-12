@@ -1,63 +1,41 @@
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-import time
 import openpyxl
 from datetime import datetime
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+import time
 
 
-def get_suggestions(keyword):
-
-    options = webdriver.ChromeOptions()
-    driver = webdriver.Chrome(service=Service(
-        ChromeDriverManager().install()), options=options)
+def get_suggestions(keyword, file_path, sheet_name):
+    driver = webdriver.Chrome()
 
     try:
-
-        driver.get("https://www.google.com/")
+        # Navigate to Google
+        driver.get("https://www.google.com")
         search_box = driver.find_element(By.NAME, "q")
-        time.sleep(1)
+        search_box.clear()
         search_box.send_keys(keyword)
         time.sleep(2)
-        search_box.send_keys(Keys.RETURN)
 
-        WebDriverWait(driver, 10).until(
-            EC.presence_of_all_elements_located(
-                (By.CSS_SELECTOR, 'ul.erkvQe li span'))
-        )
-
+        # Collect suggestions
         suggestions = driver.find_elements(
-            By.CSS_SELECTOR, 'ul.erkvQe li span')
+            By.CSS_SELECTOR, 'div[role="presentation"] span')
+        longest = ""
+        shortest = None
 
-        if suggestions:
-            suggestions_text = [suggestion.text for suggestion in suggestions]
-            longest = max(suggestions_text, key=len)
-            shortest = min(suggestions_text, key=len)
-        else:
-            longest, shortest = "", ""
-    except Exception as e:
-        print(f"Error during Google search: {e}")
-        longest, shortest = "", ""
-    finally:
-        driver.quit()
+        for suggestion in suggestions:
+            text = suggestion.text.strip()
+            if text:
+                if len(text) > len(longest):
+                    longest = text
+                if shortest is None or len(text) < len(shortest):
+                    shortest = text
 
-    return longest, shortest
+        print("Longest Suggestion: ", longest)
+        print("Shortest Suggestion: ", shortest)
 
-
-def update_excel(file_path, day, keyword, longest, shortest):
-    try:
+        # Update Excel
         wb = openpyxl.load_workbook(file_path)
-
-        if day not in wb.sheetnames:
-            print(f"Sheet for {
-                  day} does not exist. Skipping update for today.")
-            return
-
-        sheet = wb[day]
+        sheet = wb[sheet_name]
 
         for row in range(2, sheet.max_row + 1):
             if sheet.cell(row=row, column=1).value == keyword:
@@ -66,14 +44,14 @@ def update_excel(file_path, day, keyword, longest, shortest):
                 break
 
         wb.save(file_path)
-    except Exception as e:
-        print(f"Error while updating Excel file: {e}")
+        return longest, shortest
+
+    finally:
+        driver.quit()
 
 
 if __name__ == "__main__":
-
     excel_file = "keywords.xlsx"
-
     today = datetime.now().strftime("%A")
 
     try:
@@ -89,9 +67,7 @@ if __name__ == "__main__":
             for keyword in keywords:
                 if keyword:
                     print(f"Processing keyword: {keyword}")
-                    longest, shortest = get_suggestions(keyword)
-                    print(f"Longest: {longest}, Shortest: {shortest}")
-                    update_excel(excel_file, today, keyword, longest, shortest)
+                    get_suggestions(keyword, excel_file, today)
 
             print("Excel file has been updated.")
     except Exception as e:
